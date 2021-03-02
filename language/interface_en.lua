@@ -92,6 +92,7 @@ return {
 			buildMenu = {
 				nextPage = 'Next page',
 				previousPage = 'Previous page',
+				disabled = 'disabled',
 			},
 			orderMenu = {
 				move = 'Move',
@@ -467,6 +468,47 @@ return {
 				waterDamage = 'Water damage',
 				chickenOptions = 'Chicken options',
 				modOptions = 'Mod options',
+			},
+			chickens = {
+				queenIsAngry = 'The Queen is angered!',
+				wave = 'Wave',
+				chickens = 'Chickens',
+				chickenKills = 'Chicken Kills',
+				queenAnger = 'Queen Anger',
+				queenHealth = 'Queen Health',
+				gracePeriod = 'Grace Period',
+				burrows = 'Burrows',
+				burrowKills = 'Burrow Kills',
+				mode = 'Mode',
+				score = 'Your Score',
+				difficulty = {
+					veryEasy = 'Very Easy',
+					easy = 'Easy',
+					normal = 'Normal',
+					hard ='Hard',
+					veryHard = 'Very Hard',
+					epic = 'Epic',
+					custom = 'Custom',
+					survival = 'Survival',
+				},
+			},
+			loadScreen = {
+				intelGpuWarning = '%{textColor}You are using the integrated %{warnColor}Intel graphics%{textColor} card.      Your experience might be sub optimal.',
+			},
+			initialSpawn = {
+				ready = 'Ready',
+				startCountdown = 'Game starting in %{time} seconds',
+				choosePoint = 'Please choose a start point!',
+				tooClose = 'You cannot place your start position too close to another player',
+				newbiePlacer = 'In this match, newbies (rank 0) will have a faction and startpoint chosen for them!',
+			},
+			substitutePlayers = {
+				offer = 'Offer to play',
+				withdraw = 'Withdraw offer',
+				substitutionMessage = 'If player(s) are afk when the game starts, you might be used as a substitute',
+				offerWithdrawn = 'Your offer to substitute has been withdrawn',
+				substituted = 'Substitution occurred, revealed start positions to all',
+				substitutedPlayers = '%{incoming} was substituted in for %{outgoing}',
 			},
 		}
 	}

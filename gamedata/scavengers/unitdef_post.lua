@@ -5,24 +5,23 @@ for name,uDef in pairs(UnitDefs) do
     scavUnit[#scavUnit+1] = name..'_scav'
 end
 
-scavDifficulty = (Spring.GetModOptions and Spring.GetModOptions().scavdifficulty) or "easy" -- mission editor compat
-
+scavDifficulty = (Spring.GetModOptions and Spring.GetModOptions().scavdifficulty) or "veryeasy"
 if scavDifficulty == "noob" then
 	ScavDifficultyMultiplier = 0.1
-elseif scavDifficulty == "easy" then
+elseif scavDifficulty == "veryeasy" then
 	ScavDifficultyMultiplier = 0.5
+elseif scavDifficulty == "easy" then
+	ScavDifficultyMultiplier = 0.75
 elseif scavDifficulty == "medium" then
 	ScavDifficultyMultiplier = 1
 elseif scavDifficulty == "hard" then
-	ScavDifficultyMultiplier = 1.5
+	ScavDifficultyMultiplier = 1.25
 elseif scavDifficulty == "veryhard" then
+	ScavDifficultyMultiplier = 1.5
+elseif scavDifficulty == "expert" then
 	ScavDifficultyMultiplier = 2
 elseif scavDifficulty == "brutal" then
 	ScavDifficultyMultiplier = 3
-elseif scavDifficulty == "insane" then
-	ScavDifficultyMultiplier = 4
-elseif scavDifficulty == "impossible" then
-	ScavDifficultyMultiplier = 5
 else
 	ScavDifficultyMultiplier = 0.5
 end
@@ -173,9 +172,9 @@ function scav_Udef_Post(name, uDef)
 		-- uDef.maxvelocity = uDef.maxvelocity*1.1
 	-- end
 
-	if uDef.radardistancejam then
-		uDef.radardistancejam = math.ceil(uDef.radardistancejam*1.25*randomMultiplier)
-	end
+	--if uDef.radardistancejam then
+		--uDef.radardistancejam = math.ceil(uDef.radardistancejam*1.25*randomMultiplier)
+	--end
 
 	if uDef.maxdamage then
 		if uDef.name and uDef.name ~= "Scavenger Epic Commander - Final Boss" then
@@ -200,7 +199,7 @@ function scav_Udef_Post(name, uDef)
 
 	-- don't let players get scav constructors
 	if uDef.buildoptions then
-		if uDef.workertime then 
+		if Spring.GetModOptions and uDef.workertime then 
 			local workertimemultipliermodoption = tonumber(Spring.GetModOptions().scavbuildspeedmultiplier) or 1
 			uDef.workertime = uDef.workertime*workertimemultipliermodoption
 		end

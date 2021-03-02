@@ -817,7 +817,7 @@ return {
       count              = 60,
       ground             = true,
       water              = true,
-      underwater         = false,
+      underwater         = true,
       properties = {
         delay              = [[1 r750]],
         explosiongenerator = [[custom:firefly]],
@@ -834,7 +834,7 @@ return {
       count              = 60,
       ground             = true,
       water              = true,
-      underwater         = false,
+      underwater         = true,
       properties = {
         delay              = [[1 r750]],
         explosiongenerator = [[custom:fireflygreen]],
@@ -1042,6 +1042,40 @@ return {
     },
   },
 
+  ["rainlight-acid"] = {
+    usedefaultexplosions = false,
+    raindrops = {
+      air                = true,
+      class              = [[CExpGenSpawner]],
+      count              = 500,
+      ground             = true,
+      water              = true,
+      underwater         = false,
+      properties = {
+        delay              = [[1 r1060]],
+        explosiongenerator = [[custom:raindrop-acid]],
+        pos                = [[-500 r1000, 1250 r150, -500 r1000]],
+      },
+    },
+  },
+
+  ["rainverylight-acid"] = {
+    usedefaultexplosions = false,
+    raindrops = {
+      air                = true,
+      class              = [[CExpGenSpawner]],
+      count              = 210,
+      ground             = true,
+      water              = true,
+      underwater         = false,
+      properties = {
+        delay              = [[1 r530]],
+        explosiongenerator = [[custom:raindrop-acid]],
+        pos                = [[-375 r750, 1250 r150, -375 r750]],
+      },
+    },
+  },
+
   ["rainpatch"] = {
     usedefaultexplosions = false,
     raindrops = {
@@ -1072,6 +1106,39 @@ return {
       properties = {
         airdrag            = 1,
         colormap           = [[0 0 0 0   0.07 0.07 0.07 0.02   0.1 0.1 0.1 0.09   0 0 0 0.1]],
+        directional        = true,
+        emitrot            = 180,
+        emitrotspread      = 10,
+        emitvector         = [[0, 1, 0]],
+        gravity            = [[0, 0, 0]],
+        numparticles       = 2,
+        particlelife       = 34,
+        particlelifespread = 90,
+        particlesize       = 18,
+        particlesizespread = 90,
+        particlespeed      = 11,
+        particlespeedspread = 14,
+        pos                = [[200 r900, 0 r500, 200 r900]],
+        sizegrowth         = 0.8,
+        sizemod            = 1,
+        texture            = [[rain]],
+        alwaysvisible      = true,
+      },
+    },
+  },
+    ["raindrop-acid"] = {
+    usedefaultexplosions = false,
+    grounddust = {
+      air                = true,
+      class              = [[CSimpleParticleSystem]],
+      count              = 1,
+      ground             = true,
+      water              = true,
+      underwater         = false,
+      unit               = false,
+      properties = {
+        airdrag            = 1,
+        colormap           = [[0 0 0 0   0.10 0.13 0.07 0.02   0.13 0.15 0.1 0.07   0 0 0 0.1]],
         directional        = true,
         emitrot            = 180,
         emitrotspread      = 10,
