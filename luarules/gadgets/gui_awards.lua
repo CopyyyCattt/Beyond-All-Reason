@@ -11,18 +11,14 @@ function gadget:GetInfo()
 end
 
 --local localtestDebug = false        -- when true: ends game after 30 secs
-local showGraphsButton = true    -- when chobby is loaded this will be false
 
 if gadgetHandler:IsSyncedCode() then
-
 	local spAreTeamsAllied = Spring.AreTeamsAllied
 	local gaiaTeamID = Spring.GetGaiaTeamID()
 
 	local teamInfo = {}
 	local coopInfo = {}
 	local present = {}
-
-	local playerListByTeam = {}
 
 	local isEcon = {
 		--land t1
@@ -68,23 +64,6 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		unitCombinedCost[unitDefID] = unitDef.energyCost + (60 * unitDef.metalCost)
 	end
-
-	function gadget:Initialize()
-		-- helpful for debugging/testing
-		local teamList = Spring.GetTeamList()
-		for _, teamID in pairs(teamList) do
-			local playerList = Spring.GetPlayerList(teamID)
-			local list = {} --without specs
-			for _, playerID in pairs(playerList) do
-				local name, _, isSpec = Spring.GetPlayerInfo(playerID, false)
-				if not isSpec then
-					table.insert(list, name)
-				end
-			end
-			playerListByTeam[teamID] = list
-		end
-	end
-
 
 	-----------------------------------
 	-- set up book keeping
@@ -140,7 +119,6 @@ if gadgetHandler:IsSyncedCode() then
 		end
 		if spAreTeamsAllied(teamID, attackerTeamID) then
 			if teamID ~= attackerTeamID then
-				local curTime = Spring.GetGameSeconds()
 				--keep track of teamkilling
 				teamInfo[attackerTeamID].teamDmg = teamInfo[attackerTeamID].teamDmg + unitCombinedCost[unitDefID]
 			end
@@ -165,43 +143,14 @@ if gadgetHandler:IsSyncedCode() then
 		else
 			teamInfo[attackerTeamID].otherDmg = teamInfo[attackerTeamID].otherDmg + cost --currently not using this but recording it for interest
 		end
-
-		--Spring.Echo(teamInfo[attackerTeamID].fightDmg, teamInfo[attackerTeamID].ecoDmg, teamInfo[attackerTeamID].otherDmg)
 	end
 
-	---------------------------------
 	-- for debugging/testing
 	--[[
-	function FindPlayerName(teamID)
-		local plList = playerListByTeam[teamID]
-		local name
-		if plList[1] then
-			name = plList[1]
-			if #plList > 1 then
-				name = name .. " (coop)"
-			end
-		else
-			name = "(unknown)"
-		end
-		return name
-	end
 	local effSampleRate = 15
 	function gadget:GameFrame(n)
 		if n%(30*effSampleRate)~=0 or n==0 then return end
-			 local topScore = -1
-		local topTeam = 0
-		local nDmg = 0
-		local nTeams = 0
-		for teamID,_ in pairs(teamInfo) do
-			local eff = CalculateEfficiency(teamID)
-			if eff > topScore then
-				topScore = eff
-				topTeam = teamID
-			end
-			nDmg = nDmg + teamInfo[teamID].allDmg
-			nTeams = nTeams + 1
-		end
-		Spring.Echo("> most eff: " .. FindPlayerName(topTeam) .. ", score " .. topScore, "nTeamDmg = " .. nDmg/nTeams)
+		
 		if localtestDebug and n==900 then
 			Spring.GameOver({1,0})
 		end
@@ -212,7 +161,7 @@ if gadgetHandler:IsSyncedCode() then
 	-- work out who wins the awards
 	-----------------------------------
 
-	function CalculateEfficiency(teamID)
+	local function calculateEfficiency(teamID)
 		--calculate total damage dealt and unitsDeadCost
 		local totalDmg = 1 -- minor hack, avoid div0
 		local totalEco = 1
@@ -233,7 +182,6 @@ if gadgetHandler:IsSyncedCode() then
 		local pDmg = teamInfo[teamID].allDmg / totalDmg -- [0,infty), due to m/e excessed, but typically [0,1]
 		local effScore = nTeams * (pDmg - pEco)
 
-		--Spring.Echo("eff: scores " .. effScore, pDmg, pEco, " for " .. FindPlayerName(teamID))
 		return effScore
 	end
 
@@ -265,7 +213,7 @@ if gadgetHandler:IsSyncedCode() then
 
 		-- calculate efficiencies
 		for teamID, _ in pairs(teamInfo) do
-			local eff = CalculateEfficiency(teamID)
+			local eff = calculateEfficiency(teamID)
 			if nDmg > 7500 * nTeams then
 				teamInfo[teamID].effScore = eff
 			else
@@ -281,6 +229,7 @@ if gadgetHandler:IsSyncedCode() then
 		local dmgRecAward, dmgRecScore = -1, 0
 		local sleepAward, sleepScore = -1, 0
 		local traitorAward, traitorAwardSec, traitorAwardThi, traitorScore, traitorScoreSec, traitorScoreThi = -1, -1, -1, 0, 0, 0
+		
 		for teamID, _ in pairs(teamInfo) do
 			--deal with sleep times
 			local curTime = Spring.GetGameSeconds()
@@ -378,7 +327,6 @@ if gadgetHandler:IsSyncedCode() then
 		if ecoKillAward ~= -1 and (ecoKillAward == fightKillAward) and (fightKillAward == effKillAward) and ecoKillAward ~= -1 and nTeams > 3 then
 			--check if some team got all the awards + if more than 3 teams in the game
 			if winningAllyTeams and winningAllyTeams[1] then
-				local won = false
 				local _, _, _, _, _, cowAllyTeamID = Spring.GetTeamInfo(ecoKillAward, false)
 				for _, allyTeamID in pairs(winningAllyTeams) do
 					if cowAllyTeamID == allyTeamID then
@@ -399,54 +347,20 @@ if gadgetHandler:IsSyncedCode() then
 			sleepAward, sleepScore,
 			cowAward,
 			traitorAward, traitorAwardSec, traitorAwardThi, traitorScore, traitorScoreSec, traitorScoreThi)
-
 	end
 
-
-	-------------------------------------------------------------------------------------
 	-------------------------------------------------------------------------------------
 else
 	-- UNSYNCED
 	-------------------------------------------------------------------------------------
-	-------------------------------------------------------------------------------------
-
-	local texts = {        -- fallback (if you want to change this, also update: language/en.lua, or it will be overwritten)
-		awards = 'Awards',
-		score = 'Score',
-		producedthemostresources = 'produced the most resources',
-		notawarded = 'not awarded',
-		unknown = 'unknown',
-		coop = 'coop',
-		tookthemostdamage = 'took the most damage',
-		sleptlongestfor = 'slept longest, for',
-		runnersup = 'Runners up',
-		leave = 'Leave',
-		quit = 'Quit',
-		close = 'Close',
-		showgraphs = 'Show Graphs',
-		minutes = 'minutes',
-		destroyingresourceproduction = 'Destroying enemy resource production',
-		destroyingunitsdefences = 'Destroying enemy units and defences',
-		efficientuseofresources = 'Efficient use of resources',
-		doingeverything = 'Doing everything',
-		thetraitor = 'The Traitor - Destroying allied units',
-	}
-
 	local glCreateList = gl.CreateList
 	local glCallList = gl.CallList
 	local glDeleteList = gl.DeleteList
-	local glBeginEnd = gl.BeginEnd
 	local glPushMatrix = gl.PushMatrix
 	local glPopMatrix = gl.PopMatrix
-	local glTranslate = gl.Translate
 	local glColor = gl.Color
-	local glScale = gl.Scale
-	local glVertex = gl.Vertex
-	local glRect = gl.Rect
 	local glTexture = gl.Texture
 	local glTexRect = gl.TexRect
-	local GL_LINE_LOOP = GL.LINE_LOOP
-	local glText = gl.Text
 
 	local UiElement = Spring.FlowUI.Draw.Element
 
@@ -459,29 +373,20 @@ else
 	local bx, by --coords for top left hand corner of box
 	local width = 880
 	local height = 550
-	local bgMargin = 6
 	local w = math.floor(width * widgetScale)
 	local h = math.floor(height * widgetScale)
 	local quitX = math.floor(100 * widgetScale)
 	local graphsX = math.floor(250 * widgetScale)
 
 	local Background
-	local FirstAward
-	local SecondAward
-	local ThirdAward
-	local FourthAward
+	local FirstAward, SecondAward, ThirdAward, FourthAward
 	local threshold = 150000
 	local CowAward
 	local OtherAwards
 
-	local red = "\255" .. string.char(171) .. string.char(51) .. string.char(51)
-	local blue = "\255" .. string.char(51) .. string.char(51) .. string.char(151)
-	local green = "\255" .. string.char(51) .. string.char(151) .. string.char(51)
 	local white = "\255" .. string.char(251) .. string.char(251) .. string.char(251)
-	local yellow = "\255" .. string.char(251) .. string.char(251) .. string.char(11)
 
 	local playerListByTeam = {} --does not contain specs
-	local myPlayerID = Spring.GetMyPlayerID()
 
 	local fontfile = "fonts/" .. Spring.GetConfigString("bar_font", "Poppins-Regular.otf")
 	local vsx, vsy = Spring.GetViewGeometry()
@@ -492,143 +397,8 @@ else
 	local font = gl.LoadFont(fontfile, fontfileSize * fontfileScale, fontfileOutlineSize * fontfileScale, fontfileOutlineStrength)
 	local fontfile2 = "fonts/" .. Spring.GetConfigString("bar_font2", "Exo2-SemiBold.otf")
 	local font2 = gl.LoadFont(fontfile2, fontfileSize * fontfileScale, fontfileOutlineSize * fontfileScale, fontfileOutlineStrength)
-
-	function gadget:ViewResize(viewSizeX, viewSizeY)
-		vsx, vsy = Spring.GetViewGeometry()
-		local newFontfileScale = (0.5 + (vsx * vsy / 5700000))
-		if fontfileScale ~= newFontfileScale then
-			fontfileScale = newFontfileScale
-			gl.DeleteFont(font)
-			font = gl.LoadFont(fontfile, fontfileSize * fontfileScale, fontfileOutlineSize * fontfileScale, fontfileOutlineStrength)
-			gl.DeleteFont(font2)
-			font2 = gl.LoadFont(fontfile2, fontfileSize * fontfileScale, fontfileOutlineSize * fontfileScale, fontfileOutlineStrength)
-		end
-
-		local ui_scale = Spring.GetConfigFloat("ui_scale", 1)
-		local widgetSpaceMargin = math.floor((0.0045 * (vsy/vsx))*vsx * ui_scale)
-		local bgpadding = math.ceil(widgetSpaceMargin * 0.66)
-
-		--fix geometry
-		widgetScale = (0.75 + (vsx * vsy / 7500000))
-		w = math.floor(width * widgetScale)
-		h = math.floor(height * widgetScale)
-		cx = math.floor(vsx / 2)
-		cy = math.floor(vsy / 2)
-		bx = math.floor(cx - (w / 2))
-		by = math.floor(cy - (h / 2))
-
-		quitX = math.floor(100 * widgetScale)
-		graphsX = math.floor(250 * widgetScale)
-
-		--CreateBackground()
-		--drawAwards = true
-	end
-
-	local chobbyLoaded = false
-	if Spring.GetMenuName and string.find(string.lower(Spring.GetMenuName()), 'chobby') ~= nil then
-		chobbyLoaded = true
-		--showGraphsButton = false    -- false -> Close button
-	end
-
-	function gadget:Initialize()
-		if GG.lang then
-			texts = GG.lang.getText('awards')
-		end
-		if chobbyLoaded and showGraphsButton then
-			Spring.SendCommands('endgraph 2')
-		end
-
-		gadget:ViewResize()
-		--register actions to SendToUnsynced messages
-		gadgetHandler:AddSyncAction("ReceiveAwards", ProcessAwards)
-
-		--for testing
-		--FirstAward = CreateAward('fuscup',0,'Destroying enemy resource production', white, 1,1,1,24378,1324,132,100)
-		--SecondAward = CreateAward('bullcup',0,'Destroying enemy units and defences',white, 1,1,1,24378,1324,132,200)
-		--ThirdAward = CreateAward('comwreath',0,'Effective use of resources',white,1,1,1,24378,1324,132,300)
-		--CowAward = CreateAward('cow',1,'Doing everything',white,1,1,1,24378,1324,132,400)
-		--OtherAwards = CreateAward('',2,'',white,1,1,1,3,100,1000,400)
-
-		--load a list of players for each team into playerListByTeam
-		local teamList = Spring.GetTeamList()
-		for _, teamID in pairs(teamList) do
-			local playerList = Spring.GetPlayerList(teamID)
-			local list = {} --without specs
-			for _, playerID in pairs(playerList) do
-				local name, _, isSpec = Spring.GetPlayerInfo(playerID, false)
-				if not isSpec then
-					table.insert(list, name)
-				end
-			end
-			playerListByTeam[teamID] = list
-		end
-	end
-
-	function ProcessAwards(_, ecoKillAward, ecoKillAwardSec, ecoKillAwardThi, ecoKillScore, ecoKillScoreSec, ecoKillScoreThi,
-						   fightKillAward, fightKillAwardSec, fightKillAwardThi, fightKillScore, fightKillScoreSec, fightKillScoreThi,
-						   effKillAward, effKillAwardSec, effKillAwardThi, effKillScore, effKillScoreSec, effKillScoreThi,
-						   ecoAward, ecoScore,
-						   dmgRecAward, dmgRecScore,
-						   sleepAward, sleepScore,
-						   cowAward,
-						   traitorAward, traitorAwardSec, traitorAwardThi, traitorScore, traitorScoreSec, traitorScoreThi)
-
-		--record who won which awards in chat message (for demo parsing by replays.springrts.com)
-		--make all values positive, as unsigned ints are easier to parse
-		local ecoKillLine = '\161' .. tostring(1 + ecoKillAward) .. ':' .. tostring(ecoKillScore) .. '\161' .. tostring(1 + ecoKillAwardSec) .. ':' .. tostring(ecoKillScoreSec) .. '\161' .. tostring(1 + ecoKillAwardThi) .. ':' .. tostring(ecoKillScoreThi)
-		local fightKillLine = '\162' .. tostring(1 + fightKillAward) .. ':' .. tostring(fightKillScore) .. '\162' .. tostring(1 + fightKillAwardSec) .. ':' .. tostring(fightKillScoreSec) .. '\162' .. tostring(1 + fightKillAwardThi) .. ':' .. tostring(fightKillScoreThi)
-		local effKillLine = '\163' .. tostring(1 + effKillAward) .. ':' .. tostring(effKillScore) .. '\163' .. tostring(1 + effKillAwardSec) .. ':' .. tostring(effKillScoreSec) .. '\163' .. tostring(1 + effKillAwardThi) .. ':' .. tostring(effKillScoreThi)
-		local otherLine = '\164' .. tostring(1 + cowAward) .. '\165' .. tostring(1 + ecoAward) .. ':' .. tostring(ecoScore) .. '\166' .. tostring(1 + dmgRecAward) .. ':' .. tostring(dmgRecScore) .. '\167' .. tostring(1 + sleepAward) .. ':' .. tostring(sleepScore)
-		local awardsMsg = ecoKillLine .. fightKillLine .. effKillLine .. otherLine
-		Spring.SendLuaRulesMsg(awardsMsg)
-
-		--create awards
-		local addy = 0
-		if traitorScore > threshold then
-			addy = 100
-			h = 600
-		end
-		CreateBackground()
-		FirstAward = CreateAward('fuscup', 0, texts.destroyingresourceproduction, white, ecoKillAward, ecoKillAwardSec, ecoKillAwardThi, ecoKillScore, ecoKillScoreSec, ecoKillScoreThi, 100)
-		SecondAward = CreateAward('bullcup', 0, texts.destroyingunitsdefences, white, fightKillAward, fightKillAwardSec, fightKillAwardThi, fightKillScore, fightKillScoreSec, fightKillScoreThi, 200)
-		ThirdAward = CreateAward('comwreath', 0, texts.efficientuseofresources, white, effKillAward, effKillAwardSec, effKillAwardThi, effKillScore, effKillScoreSec, effKillScoreThi, 300)
-		if cowAward ~= -1 then
-			CowAward = CreateAward('cow', 1, texts.doingeverything, white, ecoKillAward, 1, 1, 1, 1, 1, 400 + addy)
-		else
-			OtherAwards = CreateAward('', 2, '', white, ecoAward, dmgRecAward, sleepAward, ecoScore, dmgRecScore, sleepScore, 400 + addy)
-		end
-		if traitorScore > threshold then
-			FourthAward = CreateAward('traitor', 0, texts.thetraitor, white, traitorAward, traitorAwardSec, traitorAwardThi, traitorScore, traitorScoreSec, traitorScoreThi, 400)
-		end
-		drawAwards = true
-
-		--don't show graph
-		Spring.SendCommands('endgraph 0')
-	end
-
-	function CreateBackground()
-		if Background then
-			glDeleteList(Background)
-		end
-		if Script.LuaUI("GuishaderInsertRect") then
-			Script.LuaUI.GuishaderInsertRect(bx, by, bx + w, by + h, 'awards')
-		end
-
-		Background = glCreateList(function()
-
-			UiElement(bx, by, bx + w, by + h, 1,1,1,1, 1,1,1,1, Spring.GetConfigFloat("ui_opacity", 0.6) + 0.2)
-
-			glColor(1, 1, 1, 1)
-			glTexture(':l:LuaRules/Images/awards.png')
-			glTexRect(bx + w / 2 - math.floor(220*widgetScale), by + h - math.floor(75*widgetScale), bx + w / 2 + math.floor(120*widgetScale), by + h - math.floor(5*widgetScale))
-
-			font:Begin()
-			font:Print(texts.score, bx + w / 2 + math.floor(275*widgetScale), by + h - math.floor(65*widgetScale), 15*widgetScale, "o")
-			font:End()
-		end)
-	end
-
-	function colourNames(teamID)
+	
+	local function colourNames(teamID)
 		if teamID < 0 then
 			return ""
 		end
@@ -648,46 +418,47 @@ else
 		return "\255" .. string.char(R255) .. string.char(G255) .. string.char(B255) --works thanks to zwzsg
 	end
 
-	function round(num, idp)
+	local function round(num, idp)
 		return string.format("%." .. (idp or 0) .. "f", num)
 	end
 
-	function FindPlayerName(teamID)
+	local function findPlayerName(teamID)
 		local plList = playerListByTeam[teamID]
 		local name
 		if plList[1] then
 			name = plList[1]
 			if #plList > 1 then
-				name = name .. '( '..texts.coop..')'
+				name = name .. ' (' .. Spring.I18N('ui.awards.coop') .. ')'
 			end
 		else
-			name = '('..texts.unknown..')'
+			name = '(' .. Spring.I18N('ui.awards.unknown') .. ')'
 		end
 
 		return name
 	end
 
-	function CreateAward(pic, award, note, noteColour, winnerID, secondID, thirdID, winnerScore, secondScore, thirdScore, offset)
+	local function createAward(pic, award, note, noteColour, winnerID, secondID, thirdID, winnerScore, secondScore, thirdScore, offset)
 		local winnerName, secondName, thirdName
 
 		--award is: 0 for a normal award, 1 for the cow award, 2 for the no-cow awards
+		local notAwardedText = '(' .. Spring.I18N('ui.awards.notAwarded') .. ')'
 
 		if winnerID >= 0 then
-			winnerName = FindPlayerName(winnerID)
+			winnerName = findPlayerName(winnerID)
 		else
-			winnerName = '('..texts.notawarded..')'
+			winnerName = notAwardedText
 		end
 
 		if secondID >= 0 then
-			secondName = FindPlayerName(secondID)
+			secondName = findPlayerName(secondID)
 		else
-			secondName = '('..texts.notawarded..')'
+			secondName = notAwardedText
 		end
 
 		if thirdID >= 0 then
-			thirdName = FindPlayerName(thirdID)
+			thirdName = findPlayerName(thirdID)
 		else
-			thirdName = '('..texts.notawarded..')'
+			thirdName = notAwardedText
 		end
 
 		thisAward = glCreateList(function()
@@ -707,15 +478,15 @@ else
 				--if the cow is not awarded, we replace it with minor awards (just text)
 				local heightoffset = 0
 				if winnerID >= 0 then
-					font:Print(colourNames(winnerID) .. winnerName .. white .. ' '..texts.producedthemostresources..' (' .. math.floor(winnerScore) .. ').', bx + math.floor(70*widgetScale), by + h - offset - math.floor(10*widgetScale) - heightoffset, 14*widgetScale, "o")
+					font:Print(Spring.I18N('ui.awards.resourcesProduced', { playerColor = colourNames(winnerID), player = winnerName, textColor = white, score = math.floor(winnerScore) }), bx + math.floor(70*widgetScale), by + h - offset - math.floor(10*widgetScale) - heightoffset, 14*widgetScale, "o")
 					heightoffset = heightoffset + (17 * widgetScale)
 				end
 				if secondID >= 0 then
-					font:Print(colourNames(secondID) .. secondName .. white .. ' '..texts.tookthemostdamage..' (' .. math.floor(secondScore) .. ').', bx + math.floor(70*widgetScale), by + h - offset - math.floor(10*widgetScale) - heightoffset, 14*widgetScale, "o")
+					font:Print(Spring.I18N('ui.awards.damageTaken', { playerColor = colourNames(secondID), player = secondName, textColor = white, score = math.floor(secondScore) }), bx + math.floor(70*widgetScale), by + h - offset - math.floor(10*widgetScale) - heightoffset, 14*widgetScale, "o")
 					heightoffset = heightoffset + (17 * widgetScale)
 				end
 				if thirdID >= 0 then
-					font:Print(colourNames(thirdID) .. thirdName .. white .. ' '..texts.sleptlongestfor..' ' .. math.floor(thirdScore / 60) .. ' '..texts.minutes..'.', bx + math.floor(70*widgetScale), by + h - offset - math.floor(10*widgetScale) - heightoffset, 14*widgetScale, "o")
+					font:Print(Spring.I18N('ui.awards.sleptLongest', { playerColor = colourNames(thirdID), player = thirdName, textColor = white, score = math.floor(thirdScore / 60) }), bx + math.floor(70*widgetScale), by + h - offset - math.floor(10*widgetScale) - heightoffset, 14*widgetScale, "o")
 				end
 			end
 
@@ -732,7 +503,7 @@ else
 				else
 					font:Print('-', bx + w / 2 + math.floor(275*widgetScale), by + h - offset - math.floor(5*widgetScale), 17*widgetScale, "o")
 				end
-				font:Print(texts.runnersup..':', bx + math.floor(500*widgetScale), by + h - offset - math.floor(5*widgetScale), 14*widgetScale, "o")
+				font:Print(Spring.I18N('ui.awards.runnersUp') .. ':', bx + math.floor(500*widgetScale), by + h - offset - math.floor(5*widgetScale), 14*widgetScale, "o")
 
 				if secondScore > 0 then
 					if pic == 'comwreath' then
@@ -761,30 +532,137 @@ else
 		return thisAward
 	end
 
+	function gadget:ViewResize(viewSizeX, viewSizeY)
+		vsx, vsy = Spring.GetViewGeometry()
+		local newFontfileScale = (0.5 + (vsx * vsy / 5700000))
+		if fontfileScale ~= newFontfileScale then
+			fontfileScale = newFontfileScale
+			gl.DeleteFont(font)
+			font = gl.LoadFont(fontfile, fontfileSize * fontfileScale, fontfileOutlineSize * fontfileScale, fontfileOutlineStrength)
+			gl.DeleteFont(font2)
+			font2 = gl.LoadFont(fontfile2, fontfileSize * fontfileScale, fontfileOutlineSize * fontfileScale, fontfileOutlineStrength)
+		end
+
+		--fix geometry
+		widgetScale = (0.75 + (vsx * vsy / 7500000))
+		w = math.floor(width * widgetScale)
+		h = math.floor(height * widgetScale)
+		cx = math.floor(vsx / 2)
+		cy = math.floor(vsy / 2)
+		bx = math.floor(cx - (w / 2))
+		by = math.floor(cy - (h / 2))
+
+		quitX = math.floor(100 * widgetScale)
+		graphsX = math.floor(250 * widgetScale)
+	end
+
+	function gadget:Initialize()
+		Spring.SendCommands('endgraph 2')
+
+		gadget:ViewResize()
+		gadgetHandler:AddSyncAction("ReceiveAwards", ProcessAwards)
+
+		--for testing
+		--[[
+		FirstAward = CreateAward('fuscup',0,'Destroying enemy resource production', white, 1,1,1,24378,1324,132,100)
+		SecondAward = CreateAward('bullcup',0,'Destroying enemy units and defences',white, 1,1,1,24378,1324,132,200)
+		ThirdAward = CreateAward('comwreath',0,'Effective use of resources',white,1,1,1,24378,1324,132,300)
+		CowAward = CreateAward('cow',1,'Doing everything',white,1,1,1,24378,1324,132,400)
+		OtherAwards = CreateAward('',2,'',white,1,1,1,3,100,1000,400)
+		]]
+
+		--load a list of players for each team into playerListByTeam
+		local teamList = Spring.GetTeamList()
+		for _, teamID in pairs(teamList) do
+			local playerList = Spring.GetPlayerList(teamID)
+			local list = {} --without specs
+			for _, playerID in pairs(playerList) do
+				local name, _, isSpec = Spring.GetPlayerInfo(playerID, false)
+				if not isSpec then
+					table.insert(list, name)
+				end
+			end
+			playerListByTeam[teamID] = list
+		end
+	end
+	
+	local function createBackground()
+		if Background then
+			glDeleteList(Background)
+		end
+		if Script.LuaUI("GuishaderInsertRect") then
+			Script.LuaUI.GuishaderInsertRect(bx, by, bx + w, by + h, 'awards')
+		end
+
+		Background = glCreateList(function()
+			UiElement(bx, by, bx + w, by + h, 1,1,1,1, 1,1,1,1, Spring.GetConfigFloat("ui_opacity", 0.6) + 0.2)
+
+			glColor(1, 1, 1, 1)
+			glTexture(':l:LuaRules/Images/awards.png')
+			glTexRect(bx + w / 2 - math.floor(220*widgetScale), by + h - math.floor(75*widgetScale), bx + w / 2 + math.floor(120*widgetScale), by + h - math.floor(5*widgetScale))
+
+			font:Begin()
+			font:Print(Spring.I18N('ui.awards.score'), bx + w / 2 + math.floor(275*widgetScale), by + h - math.floor(65*widgetScale), 15*widgetScale, "o")
+			font:End()
+		end)
+	end
+
+	function ProcessAwards(_, ecoKillAward, ecoKillAwardSec, ecoKillAwardThi, ecoKillScore, ecoKillScoreSec, ecoKillScoreThi,
+						   fightKillAward, fightKillAwardSec, fightKillAwardThi, fightKillScore, fightKillScoreSec, fightKillScoreThi,
+						   effKillAward, effKillAwardSec, effKillAwardThi, effKillScore, effKillScoreSec, effKillScoreThi,
+						   ecoAward, ecoScore,
+						   dmgRecAward, dmgRecScore,
+						   sleepAward, sleepScore,
+						   cowAward,
+						   traitorAward, traitorAwardSec, traitorAwardThi, traitorScore, traitorScoreSec, traitorScoreThi)
+
+		--record who won which awards in chat message (for demo parsing by replays.springrts.com)
+		--make all values positive, as unsigned ints are easier to parse
+		local ecoKillLine = '\161' .. tostring(1 + ecoKillAward) .. ':' .. tostring(ecoKillScore) .. '\161' .. tostring(1 + ecoKillAwardSec) .. ':' .. tostring(ecoKillScoreSec) .. '\161' .. tostring(1 + ecoKillAwardThi) .. ':' .. tostring(ecoKillScoreThi)
+		local fightKillLine = '\162' .. tostring(1 + fightKillAward) .. ':' .. tostring(fightKillScore) .. '\162' .. tostring(1 + fightKillAwardSec) .. ':' .. tostring(fightKillScoreSec) .. '\162' .. tostring(1 + fightKillAwardThi) .. ':' .. tostring(fightKillScoreThi)
+		local effKillLine = '\163' .. tostring(1 + effKillAward) .. ':' .. tostring(effKillScore) .. '\163' .. tostring(1 + effKillAwardSec) .. ':' .. tostring(effKillScoreSec) .. '\163' .. tostring(1 + effKillAwardThi) .. ':' .. tostring(effKillScoreThi)
+		local otherLine = '\164' .. tostring(1 + cowAward) .. '\165' .. tostring(1 + ecoAward) .. ':' .. tostring(ecoScore) .. '\166' .. tostring(1 + dmgRecAward) .. ':' .. tostring(dmgRecScore) .. '\167' .. tostring(1 + sleepAward) .. ':' .. tostring(sleepScore)
+		local awardsMsg = ecoKillLine .. fightKillLine .. effKillLine .. otherLine
+		Spring.SendLuaRulesMsg(awardsMsg)
+
+		--create awards
+		local addy = 0
+		if traitorScore > threshold then
+			addy = 100
+			h = 600
+		end
+		createBackground()
+		FirstAward = createAward('fuscup', 0, Spring.I18N('ui.awards.resourcesDestroyed'), white, ecoKillAward, ecoKillAwardSec, ecoKillAwardThi, ecoKillScore, ecoKillScoreSec, ecoKillScoreThi, 100)
+		SecondAward = createAward('bullcup', 0, Spring.I18N('ui.awards.enemiesDestroyed'), white, fightKillAward, fightKillAwardSec, fightKillAwardThi, fightKillScore, fightKillScoreSec, fightKillScoreThi, 200)
+		ThirdAward = createAward('comwreath', 0, Spring.I18N('ui.awards.resourcesEfficiency'), white, effKillAward, effKillAwardSec, effKillAwardThi, effKillScore, effKillScoreSec, effKillScoreThi, 300)
+		if cowAward ~= -1 then
+			CowAward = createAward('cow', 1, Spring.I18N('ui.awards.didEverything'), white, ecoKillAward, 1, 1, 1, 1, 1, 400 + addy)
+		else
+			OtherAwards = createAward('', 2, '', white, ecoAward, dmgRecAward, sleepAward, ecoScore, dmgRecScore, sleepScore, 400 + addy)
+		end
+		if traitorScore > threshold then
+			FourthAward = createAward('traitor', 0, Spring.I18N('ui.awards.traitor'), white, traitorAward, traitorAwardSec, traitorAwardThi, traitorScore, traitorScoreSec, traitorScoreThi, 400)
+		end
+		drawAwards = true
+
+		--don't show graph
+		Spring.SendCommands('endgraph 0')
+	end
+
 	function gadget:MousePress(x, y, button)
 		if drawAwards then
 			if button ~= 1 then
 				return
 			end
-			if chobbyLoaded then
-				if (x > bx + w - quitX - math.floor(5*widgetScale) and (x < bx + w - quitX + math.floor(20*widgetScale) * font:GetTextWidth('Leave') + math.floor(5*widgetScale)) and (y > by + math.floor(45*widgetScale)) and (y < by + math.floor((50 + 16 + 5)*widgetScale))) then
-					--leave button
-					Spring.Reload("")
-				end
-			else
-				if (x > bx + w - quitX - math.floor(5*widgetScale)) and (x < bx + w - quitX + math.floor(20*widgetScale) * font:GetTextWidth('Quit') + math.floor(5*widgetScale)) and (y > by + math.floor((50 - 5)*widgetScale) and (y < by + math.floor((50 + 16 + 5)*widgetScale))) then
-					--quit button
-					Spring.SendCommands("quitforce")
-				end
+
+			if (x > bx + w - quitX - math.floor(5*widgetScale) and (x < bx + w - quitX + math.floor(20*widgetScale) * font:GetTextWidth(Spring.I18N('ui.awards.leave')) + math.floor(5*widgetScale)) and (y > by + math.floor(45*widgetScale)) and (y < by + math.floor((50 + 16 + 5)*widgetScale))) then
+				--leave button
+				Spring.Reload("")
 			end
-			if (x > bx + w - graphsX - math.floor(5*widgetScale)) and (x < bx + w - graphsX + math.floor(20*widgetScale) * font:GetTextWidth((showGraphsButton and 'Show Graphs' or 'Close')) + math.floor(5*widgetScale)) and (y > by + math.floor((50 - 5)*widgetScale) and (y < by + math.floor((50 + 16 + 5)*widgetScale))) then
-				if showGraphsButton then
-					if chobbyLoaded then
-						Spring.SendCommands('endgraph 2')
-					else
-						Spring.SendCommands('endgraph 1')
-					end
-				end
+
+			if (x > bx + w - graphsX - math.floor(5*widgetScale)) and (x < bx + w - graphsX + math.floor(20*widgetScale) * font:GetTextWidth(Spring.I18N('ui.awards.showGraphs')) + math.floor(5*widgetScale)) and (y > by + math.floor((50 - 5)*widgetScale) and (y < by + math.floor((50 + 16 + 5)*widgetScale))) then
+				Spring.SendCommands('endgraph 2')
+
 				if Script.LuaUI("GuishaderRemoveRect") then
 					Script.LuaUI.GuishaderRemoveRect('awards')
 				end
@@ -793,21 +671,13 @@ else
 		end
 	end
 
-	local chipStackOffsets = {}
 	function gadget:DrawScreen()
-
 		if not drawAwards then
 			return
 		end
 
 		glPushMatrix()
-		--glTranslate(-(vsx * (widgetScale - 1)) / 2, -(vsy * (widgetScale - 1)) / 2, 0)
-		--glScale(widgetScale, widgetScale, 1)
 
-
-		--if Background == nil then
-		--	CreateBackground()
-		--end
 		if Background then
 			glCallList(Background)
 		end
@@ -834,30 +704,27 @@ else
 		local quitColour
 		local graphColour
 
-		if (x > bx + w - quitX - math.floor(5*widgetScale)) and (x < bx + w - quitX + math.floor(20*widgetScale) * font2:GetTextWidth(texts.quit) + math.floor(5*widgetScale)) and (y > by + math.floor((50 - 5)*widgetScale)) and (y < by + math.floor((50 + 17 + 5)*widgetScale)) then
+		if (x > bx + w - quitX - math.floor(5*widgetScale)) and (x < bx + w - quitX + math.floor(20*widgetScale) * font2:GetTextWidth(Spring.I18N('ui.awards.leave')) + math.floor(5*widgetScale)) and (y > by + math.floor((50 - 5)*widgetScale)) and (y < by + math.floor((50 + 17 + 5)*widgetScale)) then
 			quitColour = "\255" .. string.char(201) .. string.char(51) .. string.char(51)
 		else
 			quitColour = "\255" .. string.char(201) .. string.char(201) .. string.char(201)
 		end
 		font2:Begin()
-		font2:Print(quitColour .. (chobbyLoaded and texts.leave or texts.quit), bx + w - quitX, by + math.floor(50*widgetScale), 20*widgetScale, "o")
-		if (x > bx + w - graphsX - (5*widgetScale)) and (x < bx + w - graphsX + math.floor(20*widgetScale) * font2:GetTextWidth((showGraphsButton and texts.showgraphs or texts.close)) + math.floor(5*widgetScale)) and (y > by + math.floor((50 - 5)*widgetScale)) and (y < by + math.floor((50 + 17 + 5))*widgetScale) then
+		font2:Print(quitColour .. Spring.I18N('ui.awards.leave'), bx + w - quitX, by + math.floor(50*widgetScale), 20*widgetScale, "o")
+		if (x > bx + w - graphsX - (5*widgetScale)) and (x < bx + w - graphsX + math.floor(20*widgetScale) * font2:GetTextWidth(Spring.I18N('ui.awards.showGraphs')) + math.floor(5*widgetScale)) and (y > by + math.floor((50 - 5)*widgetScale)) and (y < by + math.floor((50 + 17 + 5))*widgetScale) then
 			graphColour = "\255" .. string.char(201) .. string.char(51) .. string.char(51)
 		else
 			graphColour = "\255" .. string.char(201) .. string.char(201) .. string.char(201)
 		end
-		font2:Print(graphColour .. (showGraphsButton and texts.showgraphs or texts.close), bx + w - graphsX, by + math.floor(50*widgetScale), 20*widgetScale, "o")
+		font2:Print(graphColour .. Spring.I18N('ui.awards.showGraphs'), bx + w - graphsX, by + math.floor(50*widgetScale), 20*widgetScale, "o")
 		font2:End()
 
 		glPopMatrix()
 	end
 
 	function gadget:Shutdown()
-		if chobbyLoaded then
-			Spring.SendCommands('endgraph 2')
-		else
-			Spring.SendCommands('endgraph 1')
-		end
+		Spring.SendCommands('endgraph 2')
+
 		if Script.LuaUI("GuishaderRemoveRect") then
 			Script.LuaUI.GuishaderRemoveRect('awards')
 		end
